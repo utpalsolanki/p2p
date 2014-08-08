@@ -31,6 +31,7 @@ SOFTWARE.
 
 #include "port.h"
 #include "ip-conv.h"
+#include "peer_parser.h"
 
 #define MSG_NOBLOCK 0x01
 #define BUFLEN 		2048
@@ -40,7 +41,7 @@ SOFTWARE.
 struct sockaddr_in myaddr, remaddr;
 int connection_count=0;
 int fd, i, slen=sizeof(remaddr);
-char buf[BUFLEN];	
+char buff[BUFLEN];	
 int recvlen;		
 char *server = "54.187.186.32";	
 
@@ -71,6 +72,8 @@ void *connection_read( void *);
 
 int main(void)
 {
+	unsigned char buf[1024];
+	
 	printf("\n\r\n\rConnecting ..");
 	if ((fd=socket(AF_INET, SOCK_DGRAM, 0))==-1)
 		printf("socket created\n");
@@ -250,7 +253,7 @@ unsigned char conneciton_id_validate(unsigned char *connectionID, int lenID)
  void connect_to_client()
  {
 	
-	unsigned char buf[100];
+	unsigned char buf[1024];
 	unsigned char r_server[40];
 	
 	sprintf(buf, "Hello !!!");
@@ -277,12 +280,15 @@ unsigned char conneciton_id_validate(unsigned char *connectionID, int lenID)
 	while(1) 
 	{
 		usleep(100);
-		
+		memset(buf,0,sizeof(buf));
+		memset(send_msg,0,sizeof(send_msg));
 		//~ scanf("%s",&send_msg);
 		gets(send_msg);
+			
+		buf[0] = PACKET_CHAT;
+		sprintf(&buf[4],"%s",send_msg);
+		if (sendto(fd, buf, 4 + strlen(send_msg), 0, (struct sockaddr *)&remaddr, slen)==-1) {}
 		
-		if (sendto(fd, send_msg, strlen(send_msg), 0, (struct sockaddr *)&remaddr, slen)==-1) {}
-		memset(send_msg,0,sizeof(send_msg));
 	}
  }
 
@@ -304,30 +310,52 @@ unsigned char conneciton_id_validate(unsigned char *connectionID, int lenID)
 void *connection_read( void *ptr )
 {
 	unsigned char buf[1024];
-	unsigned char isFirst=0;
+	unsigned char state;
+	unsigned int  pingInterval=500, pingCount=0, timeCount=0;
 	
 	while(1)
 	{
 		usleep(100);
+		timeCount++;
 		
+		if(timeCount % pingInterval == 0)
+		{
+			//~ printf("Sending Ping\n\r");
+			
+			memset(buf,0,sizeof(buf));
+			buf[0] = PACKET_PING;
+			sendto(fd, buf, 4, 0, (struct sockaddr *)&remaddr, slen);
+			
+			timeCount = 0;
+		}
+				
 		struct timeval t_v;
 		t_v.tv_sec = 0;  t_v.tv_usec = 1; 
 		setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (char *)&t_v,sizeof(struct timeval));
 		
 		recvlen = recvfrom(fd, buf, BUFLEN, 0,NULL,NULL);
+        
         if (recvlen > 0) 
         {
-			if(isFirst)
+			state = peer_parser(buf, recvlen);
+			if(state == PACKET_PING)
 			{
-				printf("%s\n\r",buf);
 				memset(buf,0,sizeof(buf));
+				buf[0] = PACKET_PONG;
+				sendto(fd, buf, 4, 0, (struct sockaddr *)&remaddr, slen);
 			}
-			else
+			else if(state == PACKET_PONG)
 			{
-				isFirst=1;
-				memset(buf,0,sizeof(buf));
+				//~ printf("Received replied\n\r");
 			}
+			else if(state == PACKET_CHAT)
+			{
+				printf("Friend: %s\n\r",&buf[4]);
+			}
+			memset(buf,0,sizeof(buf));
         }
+        
+        
 	}
 }
 

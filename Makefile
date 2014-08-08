@@ -6,10 +6,10 @@ LIBS = -lpthread
 
 all: peer
 
-peer: peer.o ip-conv.o
-	$(CC) -o peer peer.o ip-conv.o $(LIBS)
+peer: peer.o ip-conv.o peer_parser.o
+	$(CC) -o peer peer.o ip-conv.o peer_parser.o $(LIBS)
 
-peer.o: peer.c port.h ip-conv.c ip-conv.h
+peer.o: peer.c port.h ip-conv.c ip-conv.h peer_parser.c peer_parser.h
 
 clean:
-	rm -f peer peer.o ip-conv.o
+	rm -f peer *.o

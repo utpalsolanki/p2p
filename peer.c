@@ -40,6 +40,7 @@ SOFTWARE.
 
 struct sockaddr_in myaddr, remaddr;
 int connection_count=0;
+int connection_timeout=0;
 int fd, i, slen=sizeof(remaddr);
 char buff[BUFLEN];	
 int recvlen;		
@@ -327,6 +328,12 @@ void *connection_read( void *ptr )
 			sendto(fd, buf, 4, 0, (struct sockaddr *)&remaddr, slen);
 			
 			timeCount = 0;
+			connection_timeout++;
+			if(connection_timeout > 10)
+			{
+				printf("Connectin lost !!\n\r");
+				exit(0);
+			}
 		}
 				
 		struct timeval t_v;
@@ -347,6 +354,7 @@ void *connection_read( void *ptr )
 			else if(state == PACKET_PONG)
 			{
 				//~ printf("Received replied\n\r");
+				connection_timeout = 0;
 			}
 			else if(state == PACKET_CHAT)
 			{

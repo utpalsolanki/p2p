@@ -29,7 +29,7 @@ SOFTWARE.
 #include <sys/socket.h>
 #include <pthread.h>
 
-#include "port.h"
+#include "peer.h"
 #include "ip-conv.h"
 #include "peer_parser.h"
 
@@ -44,17 +44,14 @@ int connection_timeout=0;
 int fd, i, slen=sizeof(remaddr);
 char buff[BUFLEN];	
 int recvlen;		
-char *server = "54.187.186.32";	
 
-struct credential_t{
-	unsigned char publicIP[4];
-	unsigned int publicPORT;
-}we,they;
+struct credential_t we,they;
 
 
 unsigned char conneciton_id_validate(unsigned char *, int);
 void connect_to_client();
 void *connection_read( void *);
+void on_receive(void);
 /****************************************************************************
  *
  * NAME:
@@ -72,8 +69,7 @@ void *connection_read( void *);
  ****************************************************************************/
 
 int main(void)
-{
-	unsigned char buf[1024];
+{   
 	
 	printf("\n\r\n\rConnecting ..");
 	if ((fd=socket(AF_INET, SOCK_DGRAM, 0))==-1)
@@ -82,49 +78,17 @@ int main(void)
 	memset((char *)&myaddr, 0, sizeof(myaddr));
 	myaddr.sin_family = AF_INET;
 	myaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	myaddr.sin_port = htons(0);
 
-	if (bind(fd, (struct sockaddr *)&myaddr, sizeof(myaddr)) < 0) {
-		perror("bind failed");
-		return 0;
-	}       
-
-
-	memset((char *) &remaddr, 0, sizeof(remaddr));
-	remaddr.sin_family = AF_INET;
-	remaddr.sin_port = htons(SERVICE_PORT);
-	if (inet_aton(server, &remaddr.sin_addr)==0) {
-		fprintf(stderr, "inet_aton() failed\n");
-		exit(1);
-	}
-
-	sprintf(buf, "Send me my public address and port");
-	
-
-	if (sendto(fd, buf, strlen(buf), 0, (struct sockaddr *)&remaddr, slen)==-1) {}
-	
-	while(1) 
+	if(stun_client(&we))
 	{
-		usleep(100);
-		
-		struct timeval t_v;
-		t_v.tv_sec = 0;  t_v.tv_usec = 1; 
-		setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (char *)&t_v,sizeof(struct timeval));
-		
-		recvlen = recvfrom(fd, buf, BUFLEN, 0,NULL,NULL);
-        if (recvlen > 0) 
-        {
-				connection_count = 0;
-				on_receive(buf,recvlen);
-        }
-        
-        if((connection_count++)%500==0)
-        {
-			printf(".");
-			if (sendto(fd, buf, strlen(buf), 0, (struct sockaddr *)&remaddr, slen)==-1) {}
-		}
-        
+		myaddr.sin_port = htons(we.publicPORT);
+		if (bind(fd, (struct sockaddr *)&myaddr, sizeof(myaddr)) < 0) {
+			perror("bind failed");
+			return 0;
+		}       
+		on_receive();
 	}
+
 	close(fd);
 	return 0;
 }
@@ -143,28 +107,9 @@ int main(void)
  * NOTES:
  * None.
  ****************************************************************************/
- void on_receive(unsigned char* buf, unsigned int d_len)
- {
-	 if((buf=strstr(buf,"('")) == NULL)
-		return;
-	 
-	 buf += 2;
-	 
-	 unsigned char myPublicIP[4];
-	 unsigned char *tempRef = strstr(buf,"'");
-	 unsigned char *tempPrt = strstr(buf,", ");
-	 unsigned char message[100]={0};
-	 
-	 tempRef[0] = NULL;
-	 tempPrt += 2;
-	 
-	 
-	 if(ip_str_to_byte(buf, myPublicIP)==0)
-		return;
-	 
-	 memcpy(we.publicIP,myPublicIP,sizeof(we.publicIP));
-	 we.publicPORT = atoi(tempPrt);
-	 
+void on_receive()
+{
+	 char message[100]={0};
 	 printf("Connected\n\r");
 	 
 	 sprintf(message,"%d-%d-%d-%d-%d",we.publicIP[0],we.publicIP[1],we.publicIP[2],we.publicIP[3],we.publicPORT);
@@ -175,7 +120,7 @@ int main(void)
 	 do {
 		 memset(message,0,sizeof(message));
 		 printf("Provide connection ID of other peer: ");
-		 scanf("%s",&message);
+		 scanf("%s",(char *) &message);
 		 printf("\n\r");
 		}while(conneciton_id_validate(message, strlen(message))!=1);
 	
@@ -283,8 +228,8 @@ unsigned char conneciton_id_validate(unsigned char *connectionID, int lenID)
 		usleep(100);
 		memset(buf,0,sizeof(buf));
 		memset(send_msg,0,sizeof(send_msg));
-		//~ scanf("%s",&send_msg);
-		gets(send_msg);
+
+		fgets(send_msg,sizeof(send_msg),stdin);
 			
 		buf[0] = PACKET_CHAT;
 		sprintf(&buf[4],"%s",send_msg);
@@ -321,7 +266,6 @@ void *connection_read( void *ptr )
 		
 		if(timeCount % pingInterval == 0)
 		{
-			//~ printf("Sending Ping\n\r");
 			
 			memset(buf,0,sizeof(buf));
 			buf[0] = PACKET_PING;
@@ -353,7 +297,6 @@ void *connection_read( void *ptr )
 			}
 			else if(state == PACKET_PONG)
 			{
-				//~ printf("Received replied\n\r");
 				connection_timeout = 0;
 			}
 			else if(state == PACKET_CHAT)
@@ -366,5 +309,4 @@ void *connection_read( void *ptr )
         
 	}
 }
-
 

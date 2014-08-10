@@ -22,5 +22,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ******************************************************************************/
 
-#define SERVICE_PORT	55444	/* hard-coded port number */
+#define 	STUN_SERVER_PORT	3478
+#define		STUN_SERVER			"132.177.123.6	"	//stunserver.org
 
+struct stun_bind_response_t {
+	
+	unsigned char header[20];
+	unsigned char attr_mapped[12];
+	unsigned char attr_source[12];
+	unsigned char attr_changed[12];
+	unsigned char attr_xor[12];
+	unsigned char attr_server[12];
+};

@@ -23,6 +23,21 @@ SOFTWARE.
 ******************************************************************************/
 #include "ip-conv.h"
 
+/****************************************************************************
+ *
+ * NAME:
+ *
+ * DESCRIPTION:
+ *
+ * PARAMETERS:      Name            RW  Usage
+ * None.
+ *
+ * RETURNS:
+ * None.
+ *
+ * NOTES:
+ * None.
+ ****************************************************************************/
 unsigned char ip_str_to_byte(unsigned char *addrstr, unsigned char *ipaddr)
 {
 	unsigned char tmp;
